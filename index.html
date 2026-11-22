@@ -58,6 +58,12 @@ th{color:var(--mut);font-weight:500;font-size:12px;position:sticky;top:0;backgro
 td:first-child,th:first-child{text-align:left;position:sticky;left:0;background:var(--card)}
 tr.click{cursor:pointer}
 .pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;border:1px solid var(--line)}
+.acct{display:inline-block;padding:0 6px;border-radius:6px;font-size:11px;font-weight:600;vertical-align:middle}
+.acct.real{background:#e5484d22;color:#ff6b6b;border:1px solid #e5484d66}
+.acct.demo{background:#3e63dd22;color:#7c9cff;border:1px solid #3e63dd66}
+.seg{display:flex;gap:0;margin:0 0 10px;border:1px solid var(--line);border-radius:10px;overflow:hidden;width:max-content;max-width:100%}
+.seg button{border:0;border-radius:0;padding:6px 16px;background:transparent;color:var(--mut)}
+.seg button.on{background:var(--line);color:inherit;font-weight:600}
 .c-crit{background:var(--critbg);border-color:var(--crit);color:var(--crit)}
 .c-warn{background:var(--warnbg);border-color:var(--warn);color:var(--warn)}
 .c-ok{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
@@ -113,6 +119,7 @@ tr.click{cursor:pointer}
 
   <!-- 概要 -->
   <section data-p="sum">
+    <div class="seg" id="acctSw"></div>
     <div class="kpis" id="kpis"></div>
     <div class="card">
       <h2 id="chTitle">資産推移</h2>
@@ -282,11 +289,13 @@ function render(){
   renderSummary(); renderAnalysis(); renderMonthly(); renderRisk(); renderTerminals(); renderAlerts(); renderSettings();
 }
 
+function acctBadge(t){ if (!t || !t.kind_group) return ''; var lab = t.kind==='contest' ? 'コンテスト' : t.kind_group==='real' ? 'リアル' : 'デモ'; return '<span class="acct '+t.kind_group+'" title="'+(t.kind_est?'サーバー名からの推定（監視EAを最新にすると確定）':'MT5の口座情報')+'">'+lab+(t.kind_est?'?':'')+'</span>'; }
+function acctText(t){ var lab = t.kind==='contest' ? 'コンテスト' : t.kind_group==='real' ? 'リアル' : 'デモ'; return lab+(t.kind_est?'?':''); }
 function scopeLabel(){ var o = $('scope').options[$('scope').selectedIndex]; return o ? o.textContent : ''; }
 
 function fillScope(){
-  var sel = $('scope'), cur = D.scope, html = '<option value="all">全端末の合計</option>';
-  html += '<optgroup label="端末">' + D.terminals.map(function(t){ return '<option value="t:'+esc(t.tid)+'">'+esc(t.tid)+'</option>'; }).join('') + '</optgroup>';
+  var sel = $('scope'), cur = D.scope, html = '<option value="all">全端末の合計</option><option value="k:real">リアル口座の合計</option><option value="k:demo">デモ口座の合計</option>';
+  html += '<optgroup label="端末">' + D.terminals.map(function(t){ return '<option value="t:'+esc(t.tid)+'">'+esc(t.tid)+'（'+acctText(t)+'）</option>'; }).join('') + '</optgroup>';
   var mags = {};
   D.magics.forEach(function(m){ mags[m.magic] = mags[m.magic] || { label:m.label, tids:{} }; mags[m.magic].tids[m.tid]=1; });
   html += '<optgroup label="MN（端末別）">' + D.magics.map(function(m){ return '<option value="'+esc(m.key)+'">'+esc(m.tid)+' / '+esc(m.label)+'</option>'; }).join('') + '</optgroup>';
@@ -301,6 +310,11 @@ function kpi(l, v, s, cls){ return '<div class="kpi '+(cls||'')+'"><div class="l
 
 function renderSummary(){
   var S = D.settings, T = D.total, se = D.series, k = '';
+  // デモ／リアルの切替（MNを選んでいるときは、押すとその口座種別の合計に切り替わる）
+  var nReal = D.terminals.filter(function(t){ return t.kind_group==='real'; }).length, nDemo = D.terminals.length - nReal;
+  var sw = [['all','全部 '+D.terminals.length],['k:real','リアル '+nReal],['k:demo','デモ '+nDemo]];
+  $('acctSw').innerHTML = sw.map(function(b){ return '<button data-sc="'+b[0]+'" class="'+(D.scope===b[0]?'on':'')+'"'+(b[0]!=='all'&&!+b[1].split(' ')[1]?' disabled':'')+'>'+b[1]+'</button>'; }).join('');
+  $('acctSw').querySelectorAll('button').forEach(function(b){ b.onclick = function(){ setScope(b.getAttribute('data-sc')); }; });
   var magicScope = se.kind === 'magic';
   var terms = scopedTerminals();
   if (!magicScope) {
@@ -343,6 +357,7 @@ function renderSummary(){
 function scopedTerminals(){
   var s = D.scope;
   if (s.indexOf('t:')===0) return D.terminals.filter(function(t){ return 't:'+t.tid === s; });
+  if (s.indexOf('k:')===0) return D.terminals.filter(function(t){ return 'k:'+t.kind_group === s; });
   return D.terminals;
 }
 
@@ -489,7 +504,7 @@ function renderTerminals(){
     kv.push(['端末ビルド / 送信失敗', (m.build||'—')+' / '+(m.post_fail||0)]);
     if (t.bye) kv.push(['停止の連絡', esc(byeText(t.bye.reason))+'（'+dt(t.bye.t)+'）']);
     var eas = (t.charts||[]).filter(function(c){ return c.ea; });
-    return '<div class="card"><h2>'+esc(t.tid)+' '+st+'</h2><div class="kv">'+kv.map(function(r){ return '<span>'+r[0]+'</span><span>'+r[1]+'</span>'; }).join('')+'</div>' +
+    return '<div class="card"><h2>'+esc(t.tid)+' '+acctBadge(t)+' '+st+'</h2><div class="kv">'+kv.map(function(r){ return '<span>'+r[0]+'</span><span>'+r[1]+'</span>'; }).join('')+'</div>' +
       '<h2 style="margin-top:12px">チャート上のEA（'+eas.length+'）</h2><div class="small">'+
       (eas.map(function(c){ return esc(c.s)+' '+esc(c.tf)+' — '+esc(c.ea)+(c.self?' <span class="mut">（この監視EA）</span>':''); }).join('<br>') || '<span class="mut">なし</span>') + '</div>' +
       (D.canEdit === false ? '' : '<div class="row" style="margin-top:10px">'+(S.f_ea_detach ? '<button data-ea="'+esc(t.tid)+'">今の構成を基準にする</button>' : '')+
