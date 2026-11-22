@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>MT5監視</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f1115">
+<title>MT5監視</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#f5f6f8; --card:#fff; --fg:#16181d; --mut:#6b7280; --line:#e5e7eb; --acc:#2563eb;
+  --ok:#16a34a; --warn:#d97706; --crit:#dc2626; --okbg:#ecfdf3; --warnbg:#fff7e6; --critbg:#fdecec;
+  --s1:#2563eb; --s2:#9333ea; --s3:#0891b2; --s4:#64748b;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#0f1115; --card:#181b21; --fg:#e8eaed; --mut:#9aa0a6; --line:#2a2e36; --acc:#60a5fa;
+    --ok:#4ade80; --warn:#fbbf24; --crit:#f87171; --okbg:#13261b; --warnbg:#2b2312; --critbg:#2d1616;
+    --s1:#60a5fa; --s2:#c084fc; --s3:#22d3ee; --s4:#94a3b8; }
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Meiryo",sans-serif;-webkit-text-size-adjust:100%}
+header{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 16px 0;border-bottom:1px solid var(--line)}
+.top{display:flex;gap:8px;align-items:center}
+.top h1{font-size:16px;margin:0;flex:1}
+.upd{color:var(--mut);font-size:12px}
+button,select,input{font:inherit;color:inherit}
+select,input[type=number],input[type=text],input[type=url]{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 8px;max-width:100%}
+button{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer}
+button.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.filters{display:flex;gap:8px;margin:8px 0}
+.filters select{flex:1;min-width:0}
+nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{border:0;border-bottom:2px solid transparent;border-radius:0;background:none;padding:8px 10px;white-space:nowrap;color:var(--mut)}
+nav button.on{color:var(--fg);border-bottom-color:var(--acc);font-weight:600}
+nav .badge{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--crit);color:#fff;font-size:11px;margin-left:4px}
+main{padding:12px 16px 40px;max-width:1100px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+.card h2{font-size:14px;margin:0 0 8px}
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
+@media(min-width:700px){.kpis{grid-template-columns:repeat(4,1fr)}}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
+.kpi .l{color:var(--mut);font-size:12px}
+.kpi .v{font-size:20px;font-weight:650;font-variant-numeric:tabular-nums}
+.kpi .s{color:var(--mut);font-size:12px}
+.pos{color:var(--ok)} .neg{color:var(--crit)}
+.chartbox{position:relative;height:240px}
+.chartbox.sm{height:160px}
+.tbl{width:100%;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{color:var(--mut);font-weight:500;font-size:12px;position:sticky;top:0;background:var(--card)}
+td:first-child,th:first-child{text-align:left;position:sticky;left:0;background:var(--card)}
+tr.click{cursor:pointer}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;border:1px solid var(--line)}
+.c-crit{background:var(--critbg);border-color:var(--crit);color:var(--crit)}
+.c-warn{background:var(--warnbg);border-color:var(--warn);color:var(--warn)}
+.c-ok{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.c-info{border-color:var(--acc);color:var(--acc)}
+.nocolor .c-crit,.nocolor .c-warn,.nocolor .c-ok{background:none;color:var(--fg);border-color:var(--line)}
+.al{border-left:4px solid var(--line);padding:8px 10px;margin-bottom:8px;background:var(--card);border-radius:8px;white-space:pre-wrap}
+.al.crit{border-left-color:var(--crit)} .al.warn{border-left-color:var(--warn)} .al.ok{border-left-color:var(--ok)} .al.info{border-left-color:var(--acc)}
+.nocolor .al{border-left-color:var(--line)!important}
+.al b{display:block}
+.al .t{color:var(--mut);font-size:12px}
+.term{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:800px){.term{grid-template-columns:1fr 1fr}}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 12px}
+.kv > span:nth-child(odd){color:var(--mut)}
+.mut{color:var(--mut)} .small{font-size:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.set{display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center}
+.set label{min-width:0}
+.set input[type=number]{width:100px}
+.hide{display:none!important}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:3px;vertical-align:middle;margin-right:4px}
+#err{display:none;margin:8px 0}
+.load{opacity:.55;transition:opacity .2s}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <h1>MT5監視</h1>
+    <span class="upd" id="upd">読込中…</span>
+    <button id="reload" aria-label="更新">↻</button>
+  </div>
+  <div class="filters">
+    <select id="scope" aria-label="範囲"></select>
+    <select id="period" aria-label="期間">
+      <option value="7d">7日</option><option value="30d" selected>30日</option>
+      <option value="90d">90日</option><option value="ytd">今年</option><option value="all">全期間</option>
+    </select>
+  </div>
+  <nav id="tabs">
+    <button data-t="sum" class="on">概要</button>
+    <button data-t="ana">分析</button>
+    <button data-t="mon" data-f="f_monthly">月次</button>
+    <button data-t="risk">リスク</button>
+    <button data-t="term">端末</button>
+    <button data-t="alert">異常<span class="badge hide" id="badge"></span></button>
+    <button data-t="set">設定</button>
+  </nav>
+</header>
+<main id="main">
+  <div class="al crit" id="err"></div>
+
+  <!-- 概要 -->
+  <section data-p="sum">
+    <div class="kpis" id="kpis"></div>
+    <div class="card">
+      <h2 id="chTitle">資産推移</h2>
+      <div class="chartbox"><canvas id="ch1"></canvas></div>
+      <div class="legend" id="lg1"></div>
+    </div>
+    <div class="card" id="pnlCard">
+      <h2 id="ch2Title">入出金を除いた損益</h2>
+      <div class="chartbox sm"><canvas id="ch2"></canvas></div>
+      <div class="legend" id="lg2"></div>
+    </div>
+    <div class="card" id="sumAlerts"></div>
+  </section>
+
+  <!-- 分析 -->
+  <section data-p="ana" class="hide">
+    <div class="card">
+      <h2>選択範囲の成績 <span class="mut small" id="anaScope"></span></h2>
+      <div class="kv" id="anaKv"></div>
+    </div>
+    <div class="card" data-f="f_cost">
+      <h2>コスト内訳</h2>
+      <div class="kv" id="costKv"></div>
+      <div class="mut small" style="margin-top:6px">スプレッド費用は監視EAが約定を見た瞬間のスプレッドから計算します。導入前の履歴にはありません。</div>
+    </div>
+    <div class="card">
+      <h2>MN別 <span class="mut small">（行をタップでそのMNを表示）</span></h2>
+      <div class="tbl"><table id="mnTbl"></table></div>
+    </div>
+    <div class="card" data-f="f_drift">
+      <h2>想定値との乖離</h2>
+      <div class="tbl"><table id="driftTbl"></table></div>
+      <div class="mut small" style="margin-top:6px">想定値はスプレッドシートの「想定値」シートに MN ごとに書きます。z は目安の警報で、統計的な判定ではありません。</div>
+    </div>
+  </section>
+
+  <!-- 月次 -->
+  <section data-p="mon" class="hide">
+    <div class="card">
+      <h2>月次 <span class="mut small" id="monScope"></span></h2>
+      <div class="tbl"><table id="monTbl"></table></div>
+      <div class="mut small" style="margin-top:6px">「損益（含み込み）」と「DD」は有効証拠金ベース・入出金除く。「確定」は決済した取引だけ。</div>
+    </div>
+  </section>
+
+  <!-- リスク -->
+  <section data-p="risk" class="hide">
+    <div class="card" data-f="f_exposure">
+      <h2>全端末の銘柄別ポジション</h2>
+      <div class="tbl"><table id="expoTbl"></table></div>
+    </div>
+    <div class="card" data-f="f_stopout">
+      <h2>ロスカットまでの距離（概算）</h2>
+      <div class="tbl"><table id="soTbl"></table></div>
+      <div class="mut small" style="margin-top:6px">その銘柄だけが逆行し、他の銘柄と必要証拠金は動かないと仮定した値。倍率＝距離 ÷ 日足の平均値幅（直近14本）。</div>
+    </div>
+    <div class="card">
+      <h2>MN別の保有</h2>
+      <div class="tbl"><table id="openTbl"></table></div>
+    </div>
+  </section>
+
+  <!-- 端末 -->
+  <section data-p="term" class="hide">
+    <div class="term" id="termList"></div>
+    <div class="card small mut" id="cap"></div>
+  </section>
+
+  <!-- 異常 -->
+  <section data-p="alert" class="hide">
+    <div class="card"><h2>続いている異常</h2><div id="alActive"></div></div>
+    <div class="card"><h2>通知履歴（直近60件）</h2><div id="alLog"></div></div>
+  </section>
+
+  <!-- 設定 -->
+  <section data-p="set" class="hide">
+    <div class="card">
+      <h2>Discord 通知</h2>
+      <div class="row">
+        <input type="url" id="hook" placeholder="https://discord.com/api/webhooks/…" style="flex:1;min-width:200px">
+        <button id="hookSave">保存</button><button id="hookTest">テスト送信</button>
+      </div>
+      <div class="mut small" id="hookState" style="margin-top:6px"></div>
+      <div class="row" style="margin-top:10px">
+        <input type="url" id="dashUrl" placeholder="このダッシュボードのURL（通知から開けるように）" style="flex:1;min-width:200px">
+        <button id="dashSave">保存</button>
+      </div>
+      <div class="small" id="viewUrl" style="margin-top:10px;word-break:break-all"></div>
+    </div>
+    <div id="setGroups"></div>
+    <div class="card row">
+      <button class="pri" id="setSave">設定を保存</button>
+      <button id="csvBtn" data-f="f_csv">選択範囲の取引をCSVで出力</button>
+      <span class="mut small" id="setMsg"></span>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+'use strict';
+var D = null, charts = {}, tab = 'sum';
+var $ = function(id){ return document.getElementById(id); };
+var LS = { get:function(k,d){ try{ var v = localStorage.getItem('mt5mon_'+k); return v==null?d:v; }catch(e){ return d; } },
+           set:function(k,v){ try{ localStorage.setItem('mt5mon_'+k,v); }catch(e){} } };
+
+/* ---------- サーバー呼び出し（ローカル確認用の模擬にも対応） ---------- */
+var VIEW_BASE = '';
+// Google の外（GitHub Pages）に置いた画面: #u=デプロイID&k=合言葉 を読む（# 以降は置き場所のサーバーに送られない）
+var HASH = {};
+(location.hash || '').replace(/^#/, '').split('&').forEach(function(p){ var i = p.indexOf('='); if (i > 0) HASH[p.slice(0,i)] = decodeURIComponent(p.slice(i+1)); });
+var STANDALONE = !window.__MOCK__ && !(window.google && google.script);
+if (HASH.u) VIEW_BASE = 'https://script.google.com/macros/s/' + HASH.u + '/exec';
+// 閲覧用URLの合言葉（?k=）はページのURLから読む
+var KEY = new Promise(function(res){
+  if (STANDALONE) { res(HASH.k || ''); return; }
+  if (window.__MOCK__ || !google.script.url) { res(''); return; }
+  google.script.url.getLocation(function(loc){ res((loc && loc.parameter && loc.parameter.k) || ''); });
+});
+function call(fn, arg){
+  return new Promise(function(res, rej){
+    if (window.__MOCK__) { setTimeout(function(){ try{ res(window.__MOCK__(fn, arg)); }catch(e){ rej(e); } }, 50); return; }
+    KEY.then(function(k){
+      if (k && fn === 'getDashboard') {
+        var q = '?api=dash&k=' + encodeURIComponent(k) + '&scope=' + encodeURIComponent((arg && arg.scope) || '') + '&period=' + encodeURIComponent((arg && arg.period) || '');
+        fetch(VIEW_BASE + q, { credentials: 'omit' }).then(function(r){ return r.json(); }).then(function(d){ if (d && d.ok === false) throw new Error(d.error || 'error'); res(d); }).catch(rej);
+        return;
+      }
+      if (STANDALONE) { rej(new Error(k ? '閲覧専用の画面ではこの操作はできません' : 'URLの #k= が見つかりません')); return; }
+      google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](arg, k); });
+  });
+}
+
+/* ---------- 書式 ---------- */
+function n(v, d){ if (v==null || !isFinite(v)) return '—'; return Number(v).toLocaleString('ja-JP',{minimumFractionDigits:d||0, maximumFractionDigits:d||0}); }
+function sg(v, d){ if (v==null || !isFinite(v)) return '—'; return '<span class="'+(v>=0?'pos':'neg')+'">'+(v>0?'+':'')+n(v,d)+'</span>'; }
+function pct(v, d){ return v==null || !isFinite(v) ? '—' : n(v*100, d==null?1:d)+'%'; }
+function dur(sec){ if (sec==null) return '—'; if (sec<3600) return n(sec/60,0)+'分'; if (sec<86400) return n(sec/3600,1)+'時間'; return n(sec/86400,1)+'日'; }
+function dt(t){ if(!t) return '—'; var d = new Date(t); return (d.getMonth()+1)+'/'+d.getDate()+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
+function ago(min){ if (min==null) return '—'; if (min<1) return 'たった今'; if (min<60) return n(min,0)+'分前'; if (min<1440) return n(min/60,1)+'時間前'; return n(min/1440,1)+'日前'; }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function css(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function pf(st){ return st.pf_inf ? '∞' : n(st.pf,2); }
+
+/* ---------- 読み込み ---------- */
+function load(){
+  $('main').classList.add('load');
+  var opts = { scope: $('scope').value || LS.get('scope','all'), period: $('period').value };
+  return call('getDashboard', opts).then(function(d){
+    D = d; $('err').style.display='none';
+    render();
+  }).catch(function(e){
+    $('err').style.display='block'; $('err').textContent = '読み込みに失敗しました: ' + (e && e.message || e);
+  }).then(function(){ $('main').classList.remove('load'); });
+}
+
+function render(){
+  var S = D.settings;
+  document.body.classList.toggle('nocolor', !S.f_color);
+  document.querySelectorAll('[data-f]').forEach(function(el){ el.classList.toggle('hide', !S[el.getAttribute('data-f')]); });
+  if (!S.f_monthly && tab==='mon') showTab('sum');
+  $('upd').textContent = dt(D.now) + ' 更新';
+  fillScope();
+  var nCrit = D.alerts.filter(function(a){ return a.level==='crit'; }).length;
+  $('badge').textContent = D.alerts.length; $('badge').classList.toggle('hide', !D.alerts.length);
+  $('badge').style.background = nCrit ? css('--crit') : css('--warn');
+  renderSummary(); renderAnalysis(); renderMonthly(); renderRisk(); renderTerminals(); renderAlerts(); renderSettings();
+}
+
+function scopeLabel(){ var o = $('scope').options[$('scope').selectedIndex]; return o ? o.textContent : ''; }
+
+function fillScope(){
+  var sel = $('scope'), cur = D.scope, html = '<option value="all">全端末の合計</option>';
+  html += '<optgroup label="端末">' + D.terminals.map(function(t){ return '<option value="t:'+esc(t.tid)+'">'+esc(t.tid)+'</option>'; }).join('') + '</optgroup>';
+  var mags = {};
+  D.magics.forEach(function(m){ mags[m.magic] = mags[m.magic] || { label:m.label, tids:{} }; mags[m.magic].tids[m.tid]=1; });
+  html += '<optgroup label="MN（端末別）">' + D.magics.map(function(m){ return '<option value="'+esc(m.key)+'">'+esc(m.tid)+' / '+esc(m.label)+'</option>'; }).join('') + '</optgroup>';
+  var multi = Object.keys(mags).filter(function(k){ return Object.keys(mags[k].tids).length>1; });
+  if (multi.length) html += '<optgroup label="MN（全端末の合計）">' + multi.map(function(k){ return '<option value="g:'+k+'">全端末 / '+esc(mags[k].label)+'</option>'; }).join('') + '</optgroup>';
+  sel.innerHTML = html; sel.value = cur;
+  if (sel.value !== cur) sel.value = 'all';
+}
+
+/* ---------- 概要 ---------- */
+function kpi(l, v, s, cls){ return '<div class="kpi '+(cls||'')+'"><div class="l">'+l+'</div><div class="v">'+v+'</div><div class="s">'+(s||'')+'</div></div>'; }
+
+function renderSummary(){
+  var S = D.settings, T = D.total, se = D.series, k = '';
+  var magicScope = se.kind === 'magic';
+  var terms = scopedTerminals();
+  if (!magicScope) {
+    var eq = 0, bal = 0, fl = 0, open = 0;
+    terms.forEach(function(t){ eq += +t.acc.equity||0; bal += +t.acc.balance||0; fl += +t.floating||0; open += t.open_n||0; });
+    var pnl = se.pnl.length ? se.pnl[se.pnl.length-1] : null;
+    k += kpi('有効証拠金', n(eq,0), '残高 '+n(bal,0));
+    k += kpi('含み損益', sg(fl,0), '未決済 '+open+' 本');
+    k += kpi(S.f_cashflow ? '期間の損益（入出金除く）' : '期間の損益', sg(S.f_cashflow ? pnl : (se.equity.length ? se.equity[se.equity.length-1]-se.equity[0] : null),0), '確定 '+n(T.net,0)+' / '+T.n+'件');
+    k += kpi('期間の最大DD', n(se.maxdd,0), n(se.maxdd_pct,1)+'%（含み込み）');
+  } else {
+    k += kpi('確定損益', sg(T.net,0), T.n+'件 / 勝率 '+pct(T.winrate));
+    k += kpi('含み損益', sg(T.floating,0), '未決済 '+T.open_n+' 本');
+    k += kpi('確定＋含み', sg(se.total.length ? se.total[se.total.length-1] : T.net + T.floating,0), '期間の始点を0');
+    k += kpi('最大DD（含み込み）', n(se.maxdd,0), '損益DD比 '+n(T.net_dd,2));
+  }
+  if (D.currencies.length > 1) k += '<div class="kpi c-warn" style="grid-column:1/-1"><div class="l">口座通貨が混在しています（'+esc(D.currencies.join(', '))+'）。合計は換算せずに足しています。</div></div>';
+  $('kpis').innerHTML = k;
+
+  var c1 = css('--s1'), c2 = css('--s2'), c3 = css('--s3'), c4 = css('--s4');
+  if (!magicScope) {
+    $('chTitle').textContent = '資産推移 — ' + scopeLabel();
+    drawLine('ch1', se.t, [{ label:'有効証拠金', data:se.equity, color:c1 }, { label:'残高', data:se.balance, color:c4, dash:[4,3] }], 'lg1');
+    $('pnlCard').classList.toggle('hide', !S.f_cashflow);
+    $('ch2Title').textContent = '入出金を除いた損益（期間の始点を0）';
+    drawLine('ch2', se.t, [{ label:'損益（含み込み）', data:se.pnl, color:c2, fill:true }], 'lg2');
+  } else {
+    $('chTitle').textContent = 'MNの損益推移 — ' + scopeLabel();
+    drawLine('ch1', se.t, [{ label:'確定＋含み', data:se.total, color:c1 }, { label:'確定のみ', data:se.closed, color:c4, dash:[4,3], step:true }], 'lg1');
+    $('pnlCard').classList.remove('hide');
+    $('ch2Title').textContent = '含み損益と未決済本数';
+    drawLine('ch2', se.t, [{ label:'含み損益', data:se.floating, color:c2, fill:true }, { label:'未決済本数', data:se.open_n, color:c3, axis:'y2', step:true }], 'lg2');
+  }
+  var al = D.alerts.slice(0,5);
+  $('sumAlerts').innerHTML = '<h2>異常 '+(D.alerts.length ? '<span class="pill c-'+(al[0].level)+'">'+D.alerts.length+'件</span>' : '<span class="pill c-ok">なし</span>')+'</h2>' +
+    al.map(alertHtml).join('') + (D.alerts.length>5 ? '<div class="mut small">ほか '+(D.alerts.length-5)+' 件は「異常」タブ</div>' : '');
+}
+
+function scopedTerminals(){
+  var s = D.scope;
+  if (s.indexOf('t:')===0) return D.terminals.filter(function(t){ return 't:'+t.tid === s; });
+  return D.terminals;
+}
+
+function drawLine(id, xs, sets, legendId){
+  if (charts[id]) charts[id].destroy();
+  var grid = css('--line'), mut = css('--mut');
+  var useY2 = sets.some(function(s){ return s.axis==='y2'; });
+  var scales = {
+    x: { type:'linear', min: xs.length ? xs[0] : undefined, max: xs.length ? xs[xs.length-1] : undefined, ticks:{ color:mut, maxTicksLimit:5, callback:function(v){ var d=new Date(v); return (d.getMonth()+1)+'/'+d.getDate(); } }, grid:{ color:grid } },
+    y: { ticks:{ color:mut, maxTicksLimit:5, callback:function(v){ return Math.abs(v)>=10000 ? n(v/1000,0)+'k' : n(v,0); } }, grid:{ color:grid } }
+  };
+  if (useY2) scales.y2 = { position:'right', ticks:{ color:mut, maxTicksLimit:4, precision:0 }, grid:{ display:false } };
+  charts[id] = new Chart($(id), {
+    type:'line',
+    data:{ datasets: sets.map(function(s){ return {
+      label:s.label, data:xs.map(function(x,i){ return {x:x, y:s.data[i]}; }), borderColor:s.color, backgroundColor:s.color+'22',
+      borderWidth:2, pointRadius:0, tension:0, stepped:s.step?'after':false, borderDash:s.dash||[], fill:s.fill?'origin':false, yAxisID:s.axis||'y' }; }) },
+    options:{ responsive:true, maintainAspectRatio:false, animation:false, parsing:false, normalized:true,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ title:function(it){ return it.length ? dt(it[0].parsed.x) : ''; },
+        label:function(c){ return c.dataset.label+': '+n(c.parsed.y, 0); } } } },
+      scales:scales }
+  });
+  $(legendId).innerHTML = sets.map(function(s){ return '<span><i style="background:'+s.color+'"></i>'+esc(s.label)+'</span>'; }).join('') +
+    (xs.length ? '' : '<span>この期間の記録がありません</span>');
+}
+
+/* ---------- 分析 ---------- */
+function renderAnalysis(){
+  var S = D.settings, T = D.total;
+  $('anaScope').textContent = scopeLabel();
+  var kv = [
+    ['取引数（決済済み）', T.n + ' 件'],
+    ['買い / 売り（件数）', T.buys + ' / ' + T.sells + '（買い ' + pct(T.buy_ratio,0) + '）'],
+    ['買い / 売り（ロット）', n(T.buy_lots,2) + ' / ' + n(T.sell_lots,2) + '（買い ' + pct(T.buy_lot_ratio,0) + '）'],
+    ['勝率', pct(T.winrate)],
+    ['PF', pf(T)],
+    ['平均損益', sg(T.avg,1) + '（勝ち ' + n(T.avg_win,1) + ' / 負け ' + n(T.avg_loss,1) + '）'],
+    ['平均保有時間', dur(T.avg_hold)],
+    ['確定損益', sg(T.net,0)],
+    ['最大DD（確定ベース）', n(T.maxdd,0)],
+    ['損益DD比（確定）', n(T.net_dd,2)],
+    ['含み損益 / 未決済', sg(T.floating,0) + ' / ' + T.open_n + ' 本'],
+    ['最後の決済', dt(T.last)]
+  ];
+  if (D.scope==='all' || D.scope.indexOf('t:')===0) {
+    if (S.f_cashflow) kv.push(['期間の入出金', n(D.cashIn,0)]);
+    kv.push(['口座の手数料・利息など', sg(D.acctCost,0)]);
+  }
+  $('anaKv').innerHTML = kv.map(function(r){ return '<span>'+r[0]+'</span><span>'+r[1]+'</span>'; }).join('');
+
+  var ck = [
+    ['スプレッドを払う前の粗利', sg(T.gross_pre_spread,0) + (T.spcN < T.n ? ' <span class="mut small">（スプレッド記録は '+T.spcN+'/'+T.n+' 件）</span>' : '')],
+    ['スプレッド', sg(-T.spc,0)],
+    ['価格の損益（スプレッド後）', sg(T.profit,0)],
+    ['手数料', sg(T.comm,0)],
+    ['スワップ', sg(T.swap,0)],
+    ['その他費用', sg(T.fee,0)],
+    ['純損益', sg(T.net,0)],
+    ['1件あたり 粗利 / 純', n(T.n ? T.gross_pre_spread/T.n : null,1) + ' / ' + n(T.avg,1)]
+  ];
+  $('costKv').innerHTML = ck.map(function(r){ return '<span>'+r[0]+'</span><span>'+r[1]+'</span>'; }).join('');
+
+  var head = '<tr><th>MN</th><th>件数</th><th>純損益</th><th>勝率</th><th>PF</th><th>買い比率</th><th>平均保有</th><th>最大DD</th><th>損益DD比</th>' +
+    (S.f_cost ? '<th>スプレッド</th><th>手数料</th><th>スワップ</th>' : '') + '<th>含み</th><th>未決済</th></tr>';
+  var rows = D.magics.map(function(m){
+    var s = m.stats;
+    return '<tr class="click" data-k="'+esc(m.key)+'"><td>'+esc(m.tid)+' / '+esc(m.label)+'</td><td>'+s.n+'</td><td>'+sg(s.net,0)+'</td><td>'+pct(s.winrate)+'</td><td>'+pf(s)+'</td>' +
+      '<td>'+pct(s.buy_ratio,0)+'</td><td>'+dur(s.avg_hold)+'</td><td>'+n(s.maxdd,0)+'</td><td>'+n(s.net_dd,2)+'</td>' +
+      (S.f_cost ? '<td>'+n(-s.spc,0)+'</td><td>'+n(s.comm,0)+'</td><td>'+n(s.swap,0)+'</td>' : '') +
+      '<td>'+sg(m.floating,0)+'</td><td>'+m.open_n+'</td></tr>';
+  }).join('');
+  $('mnTbl').innerHTML = head + (rows || '<tr><td colspan="14" class="mut">まだ取引がありません</td></tr>');
+  $('mnTbl').querySelectorAll('tr.click').forEach(function(tr){ tr.onclick = function(){ setScope(tr.getAttribute('data-k')); showTab('sum'); }; });
+
+  var dh = '<tr><th>端末 / MN</th><th>直近件数</th><th>平均</th><th>z</th><th>勝率</th><th>z</th><th>7日件数</th><th>z</th><th>状態</th></tr>';
+  var dr = D.drift.map(function(r){
+    return '<tr><td>'+esc(r.tid)+' / '+esc(r.label)+'</td><td>'+r.n+'</td><td>'+n(r.mean,1)+'</td><td>'+n(r.z_mean,2)+'</td><td>'+pct(r.wr)+'</td><td>'+n(r.z_wr,2)+'</td>' +
+      '<td>'+(r.week==null?'—':r.week)+'</td><td>'+n(r.z_freq,2)+'</td><td>'+(r.flag ? '<span class="pill c-warn">乖離</span>' : (r.n>=5 ? '<span class="pill c-ok">範囲内</span>' : '<span class="pill">件数不足</span>'))+'</td></tr>';
+  }).join('');
+  $('driftTbl').innerHTML = dh + (dr || '<tr><td colspan="9" class="mut">「想定値」シートに MN を登録すると表示されます</td></tr>');
+}
+
+/* ---------- 月次 ---------- */
+function renderMonthly(){
+  $('monScope').textContent = scopeLabel();
+  var eqScope = D.series.kind === 'equity';
+  var h = '<tr><th>月</th>' + (eqScope ? '<th>損益（含み込み）</th><th>DD</th><th>DD%</th>' : '') + '<th>確定</th><th>件数</th><th>勝率</th><th>PF</th><th>確定DD</th><th>平均ロット</th></tr>';
+  var r = D.monthly.map(function(m){
+    return '<tr><td>'+m.month+'</td>' + (eqScope ? '<td>'+sg(m.pnl,0)+'</td><td>'+n(m.dd,0)+'</td><td>'+n(m.dd_pct,1)+'%</td>' : '') +
+      '<td>'+sg(m.net,0)+'</td><td>'+m.n+'</td><td>'+pct(m.winrate)+'</td><td>'+(m.pf==null?'—':n(m.pf,2))+'</td><td>'+n(m.closed_dd,0)+'</td><td>'+n(m.avg_lot,2)+'</td></tr>';
+  }).join('');
+  $('monTbl').innerHTML = h + (r || '<tr><td colspan="10" class="mut">この期間の記録がありません</td></tr>');
+}
+
+/* ---------- リスク ---------- */
+function renderRisk(){
+  var S = D.settings;
+  var eh = '<tr><th>銘柄</th><th>正味</th><th>買い</th><th>売り</th><th>本数</th><th>含み</th><th>端末数</th></tr>';
+  var er = D.exposure.map(function(e){
+    var over = S.exposure_max_lots>0 && Math.abs(e.net) > S.exposure_max_lots;
+    return '<tr><td>'+esc(e.s)+(over?' <span class="pill c-warn">上限超</span>':'')+'</td><td>'+n(e.net,2)+'</td><td>'+n(e.bl,2)+'</td><td>'+n(e.sl,2)+'</td><td>'+e.n+'</td><td>'+sg(e.fp,0)+'</td><td>'+e.tids.length+'</td></tr>';
+  }).join('');
+  $('expoTbl').innerHTML = eh + (er || '<tr><td colspan="7" class="mut">保有なし</td></tr>');
+
+  var sh = '<tr><th>端末 / 銘柄</th><th>正味</th><th>距離</th><th>日足値幅</th><th>倍率</th><th>スプレッド平均/最大</th></tr>';
+  var sr = [];
+  D.terminals.forEach(function(t){ (t.sym||[]).forEach(function(s){
+    var k = s.dist>0 && s.atr>0 ? s.dist/s.atr : null;
+    var cls = k==null ? '' : (k<1 ? 'c-crit' : (k<S.so_atr_k ? 'c-warn' : 'c-ok'));
+    sr.push('<tr><td>'+esc(t.tid)+' / '+esc(s.s)+'</td><td>'+n(s.net,2)+'</td><td>'+(s.dist>0?n(s.dist,s.digits>3?2:s.digits):'—')+'</td><td>'+n(s.atr,s.digits>3?2:s.digits)+'</td>' +
+      '<td>'+(k==null?'—':'<span class="pill '+cls+'">'+n(k,2)+'倍</span>')+'</td><td>'+n(s.sp_avg,1)+' / '+s.sp_max+'</td></tr>');
+  }); });
+  $('soTbl').innerHTML = sh + (sr.join('') || '<tr><td colspan="6" class="mut">保有なし</td></tr>');
+
+  var oh = '<tr><th>端末 / MN</th><th>未決済</th><th>買いロット</th><th>売りロット</th><th>含み</th></tr>';
+  var or = D.magics.filter(function(m){ return m.open_n>0; }).map(function(m){
+    var hit = (S.stack_n>0 && m.open_n>=S.stack_n) || (S.stack_loss>0 && m.floating <= -S.stack_loss);
+    return '<tr><td>'+esc(m.tid)+' / '+esc(m.label)+'</td><td>'+(hit?'<span class="pill c-warn">'+m.open_n+'</span>':m.open_n)+'</td><td>'+n(m.bl,2)+'</td><td>'+n(m.sl,2)+'</td><td>'+sg(m.floating,0)+'</td></tr>';
+  }).join('');
+  $('openTbl').innerHTML = oh + (or || '<tr><td colspan="5" class="mut">保有なし</td></tr>');
+}
+
+/* ---------- 端末 ---------- */
+function renderTerminals(){
+  var S = D.settings;
+  $('termList').innerHTML = D.terminals.map(function(t){
+    var a = t.acc, m = t.term;
+    var stale = t.age_min > S.stale_min;
+    var st = stale ? '<span class="pill c-crit">途絶 '+ago(t.age_min)+'</span>' : '<span class="pill c-'+t.level+'">'+(t.level==='ok'?'正常':'異常 '+t.alerts+'件')+'</span>';
+    var kv = [
+      ['最終受信', dt(t.last_seen)+'（'+ago(t.age_min)+'）'],
+      ['口座', esc(a.company)+' / '+esc(a.login)+' / '+esc(a.server)],
+      ['有効証拠金 / 残高', n(a.equity,0)+' / '+n(a.balance,0)+' '+esc(a.currency)],
+      ['維持率', a.margin>0 ? n(a.ml,0)+'%' : '—（保有なし）'],
+      ['ロスカット水準', a.so_mode==='pct' ? n(a.so,0)+'%' : n(a.so,0)],
+      ['DD（入出金除く）', n(t.dd_money,0)+'（'+n(t.dd_pct,1)+'%）'],
+      ['サーバー接続', m.connected ? '接続中' : '<span class="neg">切断</span>'],
+      ['自動売買', (m.trade_allowed && m.expert_allowed && m.account_trade) ? 'ON' : '<span class="neg">OFF</span>'],
+      ['レバレッジ / 口座方式', '1:'+n(a.leverage,0)+' / '+(a.hedging?'両建て':'ネッティング')]
+    ];
+    if (S.f_health) kv.push(['ping / メモリ', n(m.ping_ms,0)+'ms / '+n(m.mem_mb,0)+'MB']);
+    kv.push(['端末ビルド / 送信失敗', (m.build||'—')+' / '+(m.post_fail||0)]);
+    if (t.bye) kv.push(['停止の連絡', esc(byeText(t.bye.reason))+'（'+dt(t.bye.t)+'）']);
+    var eas = (t.charts||[]).filter(function(c){ return c.ea; });
+    return '<div class="card"><h2>'+esc(t.tid)+' '+st+'</h2><div class="kv">'+kv.map(function(r){ return '<span>'+r[0]+'</span><span>'+r[1]+'</span>'; }).join('')+'</div>' +
+      '<h2 style="margin-top:12px">チャート上のEA（'+eas.length+'）</h2><div class="small">'+
+      (eas.map(function(c){ return esc(c.s)+' '+esc(c.tf)+' — '+esc(c.ea)+(c.self?' <span class="mut">（この監視EA）</span>':''); }).join('<br>') || '<span class="mut">なし</span>') + '</div>' +
+      (D.canEdit === false ? '' : '<div class="row" style="margin-top:10px">'+(S.f_ea_detach ? '<button data-ea="'+esc(t.tid)+'">今の構成を基準にする</button>' : '')+
+      '<button data-rm="'+esc(t.tid)+'">一覧から外す</button></div>') + '</div>';
+  }).join('') || '<div class="card mut">まだ端末からデータが届いていません。監視EAを動かすと表示されます。</div>';
+  $('termList').querySelectorAll('[data-ea]').forEach(function(b){ b.onclick = function(){
+    if (!confirm(b.getAttribute('data-ea')+' の今のチャート構成を基準にします。消えたEAの通知は止まります。')) return;
+    call('resetEaBaseline', b.getAttribute('data-ea')).then(load); }; });
+  $('termList').querySelectorAll('[data-rm]').forEach(function(b){ b.onclick = function(){
+    if (!confirm(b.getAttribute('data-rm')+' を一覧から外します（記録は残ります。EAが再び送ってくれば戻ります）。')) return;
+    call('removeTerminal', b.getAttribute('data-rm')).then(load); }; });
+  var used = D.cells / 1e7;
+  $('cap').innerHTML = 'スプレッドシートの使用量: '+n(D.cells,0)+' / 10,000,000 セル（'+n(used*100,1)+'%）' + (used>0.7 ? ' <span class="pill c-warn">残りが少ない</span>' : '') + ' ・ 版 '+esc(D.version);
+}
+var BYE = {0:'EA自身が停止',1:'EAをチャートから外した',2:'再コンパイル',3:'銘柄/時間足の変更',4:'チャートを閉じた',5:'設定変更',6:'口座切替',7:'テンプレート適用',8:'初期化失敗',9:'端末を終了'};
+function byeText(r){ return BYE[r] || ('理由コード '+r); }
+
+/* ---------- 異常 ---------- */
+function alertHtml(a){
+  return '<div class="al '+esc(a.level)+'"><b>'+esc(a.title)+'</b>'+esc(a.message||'')+'<div class="t">'+(a.since ? '発生 '+dt(a.since) : dt(a.t))+'</div></div>';
+}
+function renderAlerts(){
+  $('alActive').innerHTML = D.alerts.map(alertHtml).join('') || '<div class="mut">なし</div>';
+  $('alLog').innerHTML = D.logs.map(alertHtml).join('') || '<div class="mut">なし</div>';
+}
+
+/* ---------- 設定 ---------- */
+var setRendered = false;
+function renderSettings(){
+  $('hookState').textContent = D.webhookSet ? 'Webhook は登録済みです（変更する場合だけ入力）' : 'Webhook が未登録です。Discord のチャンネル設定 → 連携サービス → ウェブフック で作った URL を貼ってください。';
+  if (setRendered) return;
+  setRendered = true;
+  var ro = D.canEdit === false;
+  if (D.viewUrl) $('viewUrl').innerHTML = '閲覧用URL（Googleログイン不要・URLを知っている人は誰でも見られます）:<br><a href="'+esc(D.viewUrl)+'">'+esc(D.viewUrl)+'</a>';
+  document.querySelectorAll('section[data-p="set"] button, section[data-p="set"] input').forEach(function(el){ el.disabled = ro; });
+  if (ro) $('hookState').textContent = '閲覧専用のURLで開いています。設定の変更とCSV出力は、スプレッドシートの「設定」シートか画面用URL（Googleログイン）から行ってください。';
+  var S = D.settings, groups = {};
+  D.settingDefs.forEach(function(d){ (groups[d[2]] = groups[d[2]] || []).push(d); });
+  $('setGroups').innerHTML = Object.keys(groups).map(function(g){
+    return '<div class="card"><h2>'+esc(g)+'</h2><div class="set">' + groups[g].map(function(d){
+      var k = d[0], v = S[k], id = 'set_'+k;
+      var input = typeof d[1] === 'boolean'
+        ? '<input type="checkbox" id="'+id+'" data-k="'+k+'"'+(v?' checked':'')+'>'
+        : '<input type="number" step="any" id="'+id+'" data-k="'+k+'" value="'+esc(v)+'">';
+      return '<label for="'+id+'">'+esc(d[3])+'</label>'+input;
+    }).join('') + '</div></div>';
+  }).join('');
+}
+
+function saveSettings(){
+  var o = {};
+  document.querySelectorAll('#setGroups [data-k]').forEach(function(el){ o[el.getAttribute('data-k')] = el.type==='checkbox' ? el.checked : Number(el.value); });
+  $('setMsg').textContent = '保存中…';
+  call('saveSettings', o).then(function(){ $('setMsg').textContent = '保存しました'; setRendered = false; return load(); })
+    .catch(function(e){ $('setMsg').textContent = '失敗: '+(e.message||e); });
+}
+
+/* ---------- 操作 ---------- */
+function showTab(t){
+  tab = t; LS.set('tab', t);
+  document.querySelectorAll('#tabs button').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-t')===t); });
+  document.querySelectorAll('main section').forEach(function(s){ s.classList.toggle('hide', s.getAttribute('data-p')!==t); });
+  if (t==='sum' && charts.ch1) { charts.ch1.resize(); charts.ch2 && charts.ch2.resize(); }
+  window.scrollTo(0,0);
+}
+function setScope(v){ $('scope').value = v; LS.set('scope', v); load(); }
+
+document.querySelectorAll('#tabs button').forEach(function(b){ b.onclick = function(){ showTab(b.getAttribute('data-t')); }; });
+$('scope').onchange = function(){ setScope(this.value); };
+$('period').onchange = function(){ LS.set('period', this.value); load(); };
+$('reload').onclick = load;
+$('setSave').onclick = saveSettings;
+$('hookSave').onclick = function(){ var v = $('hook').value.trim(); if(!v) return; call('saveWebhook', v).then(function(){ $('hook').value=''; $('hookState').textContent='保存しました'; }).catch(function(e){ alert(e.message||e); }); };
+$('hookTest').onclick = function(){ call('testDiscord').then(function(){ $('hookState').textContent = 'テスト通知を送りました。Discord を確認してください。'; }); };
+$('dashSave').onclick = function(){ call('saveDashUrl', $('dashUrl').value.trim()).then(function(){ $('setMsg').textContent='URLを保存しました'; }); };
+$('csvBtn').onclick = function(){
+  $('setMsg').textContent = 'CSVを作成中…';
+  call('exportCsv', { scope: D.scope, period: D.period }).then(function(r){
+    $('setMsg').innerHTML = r.rows+'件を <a href="'+esc(r.url)+'" target="_blank" rel="noopener">Googleドライブ</a> に保存しました';
+  }).catch(function(e){ $('setMsg').textContent = '失敗: '+(e.message||e); });
+};
+
+$('period').value = LS.get('period','30d');
+var opt = document.createElement('option'); opt.value = LS.get('scope','all'); opt.textContent = '…'; $('scope').appendChild(opt); $('scope').value = opt.value;
+showTab(LS.get('tab','sum'));
+load();
+setInterval(function(){ if (!document.hidden) load(); }, 60000);
+document.addEventListener('visibilitychange', function(){ if (!document.hidden && D && Date.now()-D.now > 30000) load(); });
+})();
+</script>
+</body>
+</html>
