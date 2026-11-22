@@ -508,7 +508,7 @@ function renderTerminals(){
       '<h2 style="margin-top:12px">チャート上のEA（'+eas.length+'）</h2><div class="small">'+
       (eas.map(function(c){ return esc(c.s)+' '+esc(c.tf)+' — '+esc(c.ea)+(c.self?' <span class="mut">（この監視EA）</span>':''); }).join('<br>') || '<span class="mut">なし</span>') + '</div>' +
       (D.canEdit === false ? '' : '<div class="row" style="margin-top:10px">'+(S.f_ea_detach ? '<button data-ea="'+esc(t.tid)+'">今の構成を基準にする</button>' : '')+
-      '<button data-rm="'+esc(t.tid)+'">一覧から外す</button></div>') + '</div>';
+      '<button data-rm="'+esc(t.tid)+'">一覧から外す</button><button data-purge="'+esc(t.tid)+'">記録ごと消す</button></div>') + '</div>';
   }).join('') || '<div class="card mut">まだ端末からデータが届いていません。監視EAを動かすと表示されます。</div>';
   $('termList').querySelectorAll('[data-ea]').forEach(function(b){ b.onclick = function(){
     if (!confirm(b.getAttribute('data-ea')+' の今のチャート構成を基準にします。消えたEAの通知は止まります。')) return;
@@ -516,6 +516,10 @@ function renderTerminals(){
   $('termList').querySelectorAll('[data-rm]').forEach(function(b){ b.onclick = function(){
     if (!confirm(b.getAttribute('data-rm')+' を一覧から外します（記録は残ります。EAが再び送ってくれば戻ります）。')) return;
     call('removeTerminal', b.getAttribute('data-rm')).then(load); }; });
+  $('termList').querySelectorAll('[data-purge]').forEach(function(b){ b.onclick = function(){
+    var tid = b.getAttribute('data-purge');
+    if (prompt(tid+' の約定・資産推移・MN別推移をすべて消します。元に戻せません。\n端末名を二重に取り込んだときの掃除用です。\n消すなら端末名をそのまま入力してください。') !== tid) return;
+    call('purgeTerminal', tid).then(function(r){ alert('消しました: 約定 '+(r['約定']||0)+' 行 / 資産 '+(r['資産']||0)+' 行 / MN資産 '+(r['MN資産']||0)+' 行'); load(); }).catch(function(e){ alert(e.message||e); }); }; });
   var used = D.cells / 1e7;
   $('cap').innerHTML = 'スプレッドシートの使用量: '+n(D.cells,0)+' / 10,000,000 セル（'+n(used*100,1)+'%）' + (used>0.7 ? ' <span class="pill c-warn">残りが少ない</span>' : '') + ' ・ 版 '+esc(D.version);
 }
