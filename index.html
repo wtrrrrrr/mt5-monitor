@@ -323,10 +323,11 @@ function renderSummary(){
   var c1 = css('--s1'), c2 = css('--s2'), c3 = css('--s3'), c4 = css('--s4');
   if (!magicScope) {
     $('chTitle').textContent = '資産推移 — ' + scopeLabel();
-    drawLine('ch1', se.t, [{ label:'有効証拠金', data:se.equity, color:c1 }, { label:'残高', data:se.balance, color:c4, dash:[4,3] }], 'lg1');
+    drawLine('ch1', se.t, [{ label:'有効証拠金', data:se.equity, color:c1, est:se.est }, { label:'残高', data:se.balance, color:c4, dash:[4,3] }], 'lg1');
+    if (se.has_est) $('lg1').innerHTML += '<div class="mut small" style="flex-basis:100%">細かい点線 = 監視EAを入れる前の期間。約定の履歴から残高を逆算した値で、含み損益は入っていない（確定ベース）</div>';
     $('pnlCard').classList.toggle('hide', !S.f_cashflow);
     $('ch2Title').textContent = '入出金を除いた損益（期間の始点を0）';
-    drawLine('ch2', se.t, [{ label:'損益（含み込み）', data:se.pnl, color:c2, fill:true }], 'lg2');
+    drawLine('ch2', se.t, [{ label:'損益（含み込み）', data:se.pnl, color:c2, fill:true, est:se.est }], 'lg2');
   } else {
     $('chTitle').textContent = 'MNの損益推移 — ' + scopeLabel();
     drawLine('ch1', se.t, [{ label:'確定＋含み', data:se.total, color:c1 }, { label:'確定のみ', data:se.closed, color:c4, dash:[4,3], step:true }], 'lg1');
@@ -358,7 +359,8 @@ function drawLine(id, xs, sets, legendId){
     type:'line',
     data:{ datasets: sets.map(function(s){ return {
       label:s.label, data:xs.map(function(x,i){ return {x:x, y:s.data[i]}; }), borderColor:s.color, backgroundColor:s.color+'22',
-      borderWidth:2, pointRadius:0, tension:0, stepped:s.step?'after':false, borderDash:s.dash||[], fill:s.fill?'origin':false, yAxisID:s.axis||'y' }; }) },
+      borderWidth:2, pointRadius:0, tension:0, stepped:s.step?'after':false, borderDash:s.dash||[], fill:s.fill?'origin':false, yAxisID:s.axis||'y',
+      segment: s.est ? { borderDash:function(c){ return s.est[c.p1DataIndex] ? [2,4] : undefined; } } : undefined }; }) },
     options:{ responsive:true, maintainAspectRatio:false, animation:false, parsing:false, normalized:true,
       interaction:{ mode:'index', intersect:false },
       plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ title:function(it){ return it.length ? dt(it[0].parsed.x) : ''; },
